@@ -1,0 +1,158 @@
+# docker-compose.yml
+services:
+
+  postgres:
+    image: postgres:17
+    container_name: skillforge_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: skillforge
+      POSTGRES_USER: skillforge_user
+      POSTGRES_PASSWORD: skillforge_pass
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - skillforge_network
+
+  redis:
+    image: redis:7-alpine
+    container_name: skillforge_redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    ports:
+      - "6380:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - skillforge_network
+
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.6.0
+    container_name: skillforge_zookeeper
+    restart: unless-stopped
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    networks:
+      - skillforge_network
+
+  kafka:
+    image: confluentinc/cp-kafka:7.6.0
+    container_name: skillforge_kafka
+    restart: unless-stopped
+    depends_on:
+      - zookeeper
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: true
+    networks:
+      - skillforge_network
+
+  rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    container_name: skillforge_rabbitmq
+    restart: unless-stopped
+    environment:
+      RABBITMQ_DEFAULT_USER: skillforge
+      RABBITMQ_DEFAULT_PASS: skillforge_pass
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    networks:
+      - skillforge_network
+
+  elasticsearch:
+    image: elasticsearch:8.13.0
+    container_name: skillforge_elasticsearch
+    restart: unless-stopped
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+    ports:
+      - "9200:9200"
+    volumes:
+      - elasticsearch_data:/usr/share/elasticsearch/data
+    networks:
+      - skillforge_network
+
+  minio:
+    image: minio/minio:latest
+    container_name: skillforge_minio
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: skillforge
+      MINIO_ROOT_PASSWORD: skillforge_pass_minio
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio_data:/data
+    networks:
+      - skillforge_network
+
+  mailpit:
+    image: axllent/mailpit:latest
+    container_name: skillforge_mailpit
+    restart: unless-stopped
+    ports:
+      - "1025:1025"
+      - "8025:8025"
+    networks:
+      - skillforge_network
+
+  # ─── JUDGE0 ────────────────────────────────────
+  judge0:
+    image: judge0/judge0:1.13.0
+    container_name: skillforge_judge0
+    restart: unless-stopped
+    ports:
+      - "2358:2358"
+    environment:
+      REDIS_URL: redis://redis:6379/1
+      POSTGRES_HOST: postgres
+      POSTGRES_DB: judge0
+      POSTGRES_USER: skillforge_user
+      POSTGRES_PASSWORD: skillforge_pass
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - skillforge_network
+
+  judge0_worker:
+    image: judge0/judge0:1.13.0
+    container_name: skillforge_judge0_worker
+    restart: unless-stopped
+    command: ["./scripts/workers"]
+    environment:
+      REDIS_URL: redis://redis:6379/1
+      POSTGRES_HOST: postgres
+      POSTGRES_DB: judge0
+      POSTGRES_USER: skillforge_user
+      POSTGRES_PASSWORD: skillforge_pass
+    depends_on:
+      - judge0
+    networks:
+      - skillforge_network
+
+volumes:
+  postgres_data:
+  redis_data:
+  rabbitmq_data:
+  elasticsearch_data:
+  minio_data:
+
+networks:
+  skillforge_network:
+    driver: bridge

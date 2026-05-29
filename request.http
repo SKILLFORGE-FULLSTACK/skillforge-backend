@@ -1,0 +1,427 @@
+### Variables
+@baseUrl = http://127.0.0.1:8000/api
+@token = 9|iGT1R8rM9HlYJXZE3rdINq4LEDr8qopRTv2TB7FZc890712a
+@token_recruiter = 7|GZe5XQP0FiMGkomj3XXDKlk2wKZwN8anGfsMV9x340a1a0dd
+@verify_token = Gx4GYJmTlWsnm3GLbNrXkYtU5HMPF8Rd
+
+### ─── AUTH ─────────────────────────────────────
+
+### Login dev
+# @name login
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "dev1@skillforge.io",
+  "password": "password123"
+}
+
+###
+
+### Register
+POST {{baseUrl}}/auth/register
+Content-Type: application/json
+
+{
+  "name": "Rakoto Dev",
+  "email": "rakoto@test.io",
+  "password": "password123",
+  "password_confirmation": "password123",
+  "role": "developer"
+}
+
+###
+
+### Me
+GET {{baseUrl}}/me
+Authorization: Bearer {{token}}
+
+###
+
+### Logout
+POST {{baseUrl}}/auth/logout
+Authorization: Bearer {{token}}
+
+###
+
+### ─── INTERVIEWS ─────────────────────────────────
+
+### Demarrer une session
+# @name startInterview
+POST {{baseUrl}}/interviews/start
+Authorization: Bearer {{token}}
+Content-Type: application/json
+Accept: application/json
+
+{
+  "type": "tech_stack",
+  "difficulty": "medium",
+  "stack_focus": "Laravel",
+  "duration_min": 30
+}
+
+###
+
+@session_id = {{startInterview.response.body.session.id}}
+@question_id = {{startInterview.response.body.session.current_question.id}}
+
+### Repondre a une question
+POST {{baseUrl}}/interviews/{{session_id}}/respond
+Authorization: Bearer {{token}}
+Content-Type: application/json
+Accept: application/json
+
+{
+  "question_id": "{{question_id}}",
+  "text_answer": "Un Service Provider dans Laravel est une classe qui bootstrap les services de l application. Il contient deux methodes principales : register() pour lier les services au container, et boot() pour les actions apres enregistrement.",
+  "code_submitted": "<?php\nclass AppServiceProvider extends ServiceProvider\n{\n    public function register(): void {}\n    public function boot(): void {}\n}",
+  "language": "php"
+}
+
+###
+
+### Demander un indice
+POST {{baseUrl}}/interviews/{{session_id}}/hint
+Authorization: Bearer {{token}}
+Content-Type: application/json
+Accept: application/json
+
+{
+  "question_id": "{{question_id}}",
+  "partial_answer": "Je sais que c est lie au container..."
+}
+
+###
+
+### Terminer la session
+POST {{baseUrl}}/interviews/{{session_id}}/complete
+Authorization: Bearer {{token}}
+Accept: application/json
+
+###
+
+### Rapport de session
+GET {{baseUrl}}/interviews/{{session_id}}/report
+Authorization: Bearer {{token}}
+Accept: application/json
+
+###
+
+### Historique interviews
+GET {{baseUrl}}/interviews
+Authorization: Bearer {{token}}
+Accept: application/json
+
+###
+
+### ─── MARKETPLACE ─────────────────────────────────
+
+### Rechercher developpeurs
+GET {{baseUrl}}/marketplace/developers?level=senior&work_mode=remote
+Authorization: Bearer {{token}}
+Accept: application/json
+
+###
+
+### Profil complet d un developpeur
+GET {{baseUrl}}/marketplace/developers/dev-test-1
+Authorization: Bearer {{token}}
+Accept: application/json
+
+###
+
+### Login recruteur
+# @name loginRecruiter
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "recruiter1@skillforge.io",
+  "password": "password123"
+}
+
+###
+
+### Contacter un developpeur
+POST {{baseUrl}}/marketplace/contact
+Authorization: Bearer {{token_recruiter}}
+Content-Type: application/json
+Accept: application/json
+
+{
+  "developer_id": "019dfb48-e685-7027-9540-f32b0dff5f72",
+  "message": "Bonjour, nous avons une opportunite qui correspond parfaitement a votre profil Laravel. Seriez-vous disponible pour un entretien cette semaine ?"
+}
+
+###
+
+### Profils sauvegardes
+GET {{baseUrl}}/marketplace/saved
+Authorization: Bearer {{token_recruiter}}
+Accept: application/json
+
+###
+
+### Sauvegarder un profil
+POST {{baseUrl}}/marketplace/saved/019dfb48-e685-7027-9540-f32b0dff5f72
+Authorization: Bearer {{token_recruiter}}
+Content-Type: application/json
+Accept: application/json
+
+{
+  "note": "Candidat Laravel solide, disponible remote"
+}
+
+###
+
+### Offres d emploi
+GET {{baseUrl}}/jobs
+Authorization: Bearer {{token}}
+Accept: application/json
+
+###
+
+### Creer une offre
+POST {{baseUrl}}/jobs
+Authorization: Bearer {{token_recruiter}}
+Content-Type: application/json
+Accept: application/json
+
+{
+  "title": "Developpeur Laravel Senior",
+  "description": "Nous recherchons un developpeur Laravel experimente pour rejoindre notre equipe. Vous travaillerez sur des projets innovants avec une stack moderne incluant Laravel, PostgreSQL, Redis et Docker.",
+  "contract_type": "full_time",
+  "work_mode": "remote",
+  "min_level": "senior",
+  "required_skills": ["Laravel", "PostgreSQL", "Docker"],
+  "salary_min": 3000,
+  "salary_max": 5000,
+  "currency": "USD"
+}
+
+###
+
+### ─── CERTIFICATIONS ─────────────────────────────
+
+### Liste des certifications
+GET {{baseUrl}}/certifications
+Authorization: Bearer {{token}}
+Accept: application/json
+
+###
+
+### Detail d une certification
+GET {{baseUrl}}/certifications/laravel-api-intermediate
+Authorization: Bearer {{token}}
+Accept: application/json
+
+###
+
+### Mes soumissions
+GET {{baseUrl}}/certifications/my-submissions
+Authorization: Bearer {{token}}
+Accept: application/json
+
+###
+
+### Demarrer une certification
+# @name startCert
+POST {{baseUrl}}/certifications/laravel-api-intermediate/start
+Authorization: Bearer {{token}}
+Accept: application/json
+
+###
+
+@submission_id = {{startCert.response.body.submission.id}}
+
+### Soumettre le projet
+POST {{baseUrl}}/submissions/{{submission_id}}/submit
+Authorization: Bearer {{token}}
+Content-Type: application/json
+Accept: application/json
+
+{
+  "github_repo_url": "https://github.com/nirinaalbert29/laravel-projet-vente-logement2",
+  "live_url": "https://jean-alexis-nirina-albert-dev.vercel.app/fr",
+  "notes": "Projet API REST avec authentification Sanctum et tests Feature."
+}
+
+###
+
+### Rapport de soumission
+GET {{baseUrl}}/submissions/{{submission_id}}/report
+Authorization: Bearer {{token}}
+Accept: application/json
+
+###
+
+### Verifier un badge (public)
+GET {{baseUrl}}/badges/verify/{{verify_token}}
+
+###
+
+### ─── PROGRESSION ─────────────────────────────────
+
+### Mes stats
+GET {{baseUrl}}/me/stats
+Authorization: Bearer {{token}}
+Accept: application/json
+
+###
+
+### Mettre a jour le streak
+POST {{baseUrl}}/me/streak
+Authorization: Bearer {{token}}
+Accept: application/json
+
+###
+
+### Heatmap d activite
+GET {{baseUrl}}/me/activity?days=90
+Authorization: Bearer {{token}}
+Accept: application/json
+
+###
+
+### Historique XP
+GET {{baseUrl}}/me/xp-history?limit=10
+Authorization: Bearer {{token}}
+Accept: application/json
+
+###
+
+### Leaderboard global
+GET {{baseUrl}}/leaderboard?period=global&limit=10
+Authorization: Bearer {{token}}
+Accept: application/json
+
+###
+
+### Leaderboard hebdomadaire
+GET {{baseUrl}}/leaderboard?period=weekly
+Authorization: Bearer {{token}}
+Accept: application/json
+
+###
+
+### ─── COMMUNAUTE ──────────────────────────────────
+
+### Creer un post forum
+# @name createPost
+POST {{baseUrl}}/forum
+Authorization: Bearer {{token}}
+Content-Type: application/json
+Accept: application/json
+
+{
+  "title": "Comment optimiser Eloquent N+1",
+  "body": "Je travaille sur une API Laravel et je rencontre des problemes de performance avec Eloquent. Comment resoudre le probleme N+1 efficacement ?",
+  "category": "backend",
+  "tags": ["Laravel", "Eloquent", "Performance"]
+}
+
+###
+
+@post_id = {{createPost.response.body.post.id}}
+
+### Voir les posts
+GET {{baseUrl}}/forum
+Authorization: Bearer {{token}}
+Accept: application/json
+
+###
+
+### Detail d un post
+GET {{baseUrl}}/forum/{{post_id}}
+Authorization: Bearer {{token}}
+Accept: application/json
+
+###
+
+### Commenter un post
+# @name createComment
+POST {{baseUrl}}/forum/{{post_id}}/comments
+Authorization: Bearer {{token}}
+Content-Type: application/json
+Accept: application/json
+
+{
+  "body": "Utilisez eager loading avec la methode with() : User::with('posts')->get(). Cela reduit les requetes a seulement 2 au lieu de N+1."
+}
+
+###
+
+@comment_id = {{createComment.response.body.comment.id}}
+
+### Voter upvote pour un post
+POST {{baseUrl}}/forum/post/{{post_id}}/vote
+Authorization: Bearer {{token}}
+Content-Type: application/json
+Accept: application/json
+
+{
+  "value": 1
+}
+
+###
+
+### Voter downvote pour un commentaire
+POST {{baseUrl}}/forum/comment/{{comment_id}}/vote
+Authorization: Bearer {{token}}
+Content-Type: application/json
+Accept: application/json
+
+{
+  "value": -1
+}
+
+###
+
+### Accepter une reponse
+POST {{baseUrl}}/forum/comments/{{comment_id}}/accept
+Authorization: Bearer {{token}}
+Accept: application/json
+
+###
+
+### Challenge de la semaine
+# @name currentChallenge
+GET {{baseUrl}}/challenges/current
+Authorization: Bearer {{token}}
+Accept: application/json
+
+###
+
+@challenge_id = {{currentChallenge.response.body.challenge.id}}
+
+### Soumettre une solution au challenge
+POST {{baseUrl}}/challenges/{{challenge_id}}/submit
+Authorization: Bearer {{token}}
+Content-Type: application/json
+Accept: application/json
+
+{
+  "code_submitted": "<?php\nfunction fibonacci(int $n): int {\n    if ($n <= 1) return $n;\n    $a = 0; $b = 1;\n    for ($i = 2; $i <= $n; $i++) {\n        $temp = $a + $b;\n        $a = $b;\n        $b = $temp;\n    }\n    return $b;\n}\necho fibonacci(10);",
+  "language": "php"
+}
+
+###
+
+### Leaderboard du challenge
+GET {{baseUrl}}/challenges/{{challenge_id}}/leaderboard
+Authorization: Bearer {{token}}
+Accept: application/json
+
+###
+
+### Mes notifications
+GET {{baseUrl}}/notifications
+Authorization: Bearer {{token}}
+Accept: application/json
+
+###
+
+### Marquer une notification comme lue
+POST {{baseUrl}}/notifications/read-all
+Authorization: Bearer {{token}}
+Accept: application/json
