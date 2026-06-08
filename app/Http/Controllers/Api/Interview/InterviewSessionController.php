@@ -106,6 +106,17 @@ class InterviewSessionController extends Controller
         ]);
     }
 
+    // Détail d'une session (reprise ou consultation)
+    public function show(Request $request, string $id): JsonResponse
+    {
+        $session = InterviewSession::where('user_id', $request->user()->id)
+            ->findOrFail($id);
+
+        return response()->json([
+            'session' => new InterviewSessionResource($session),
+        ]);
+    }
+
     // Historique
     public function index(Request $request): JsonResponse
     {

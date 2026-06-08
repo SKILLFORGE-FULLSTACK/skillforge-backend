@@ -74,6 +74,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('{id}/hint', [InterviewSessionController::class, 'hint']);
         Route::post('{id}/complete', [InterviewSessionController::class, 'complete']);
         Route::get('{id}/report', [InterviewSessionController::class, 'report']);
+        Route::get('{id}', [InterviewSessionController::class, 'show']);
     });
 
     // ─── CERTIFICATIONS ──────────────────────────────────────────

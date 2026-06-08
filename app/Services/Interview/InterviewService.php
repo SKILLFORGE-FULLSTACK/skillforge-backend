@@ -6,7 +6,6 @@ use App\Models\InterviewQuestion;
 use App\Models\InterviewResponse;
 use App\Models\InterviewSession;
 use App\Models\User;
-use Illuminate\Support\Facades\DB;
 
 class InterviewService
 {
@@ -36,7 +35,7 @@ class InterviewService
             'constraints' => $questionData['constraints'] ?? null,
             'examples'   => $questionData['examples'] ?? [],
             'hints'      => $questionData['hints'] ?? [],
-            'stack'      => $data['stack_focus'] ? [$data['stack_focus']] : [],
+            'stack'      => !empty($data['stack_focus']) ? [$data['stack_focus']] : [],
             'is_community' => false,
         ]);
 
@@ -215,7 +214,7 @@ class InterviewService
             'questions'  => $questionsData,
         ]);
 
-        $duration = now()->diffInSeconds($session->started_at);
+        $duration = (int) abs(now()->diffInSeconds($session->started_at));
 
         // XP gagné selon le score
         $xpEarned = $this->calculateXP($avgScore, $session->difficulty);
