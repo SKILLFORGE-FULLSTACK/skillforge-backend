@@ -11,12 +11,20 @@ class JobPostingService
     public function list(array $filters): LengthAwarePaginator
     {
         $query = JobPosting::query()
-            ->where('status', 'active')
             ->with([
                 'recruiter:id,name',
                 'recruiter.recruiterProfile:user_id,company_name,company_logo_url',
             ])
             ->latest('published_at');
+
+        if (! empty($filters['recruiter_id'])) {
+            // Vue "mes offres" d'un recruteur : toutes ses offres, quel que
+            // soit leur statut (active/paused/closed).
+            $query->where('recruiter_id', $filters['recruiter_id']);
+        } else {
+            // Marketplace publique : uniquement les offres actives, tous recruteurs.
+            $query->where('status', 'active');
+        }
 
         if (! empty($filters['contract_type'])) {
             $query->where('contract_type', $filters['contract_type']);
@@ -28,8 +36,7 @@ class JobPostingService
 
         if (! empty($filters['search'])) {
             $query->where(
-                fn($q) =>
-                $q->where('title', 'ilike', "%{$filters['search']}%")
+                fn ($q) => $q->where('title', 'ilike', "%{$filters['search']}%")
                     ->orWhere('description', 'ilike', "%{$filters['search']}%")
             );
         }
@@ -42,7 +49,7 @@ class JobPostingService
         return JobPosting::create([
             ...$data,
             'recruiter_id' => $recruiter->id,
-            'currency'     => $data['currency'] ?? 'USD',
+            'currency' => $data['currency'] ?? 'USD',
         ]);
     }
 
@@ -62,6 +69,7 @@ class JobPostingService
     {
         $job = JobPosting::where('recruiter_id', $recruiter->id)->findOrFail($id);
         $job->update($data);
+
         return $job;
     }
 }
