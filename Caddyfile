@@ -1,0 +1,14 @@
+{$API_DOMAIN} {
+	# Fichiers publics stockés dans MinIO (avatars, etc.) — voir DEPLOY.md au
+	# sujet des fichiers qui doivent rester privés (à servir via temporaryUrl()
+	# plutôt que ce passthrough public).
+	handle_path /storage/* {
+		reverse_proxy minio:9000 {
+			rewrite * /{$AWS_BUCKET}{uri}
+		}
+	}
+
+	handle {
+		reverse_proxy nginx:80
+	}
+}

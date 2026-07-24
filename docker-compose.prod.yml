@@ -1,0 +1,199 @@
+# docker-compose.prod.yml — déploiement sur une VM (ex: Oracle Cloud Always Free).
+# Contrairement à docker-compose.yml (dev), aucun port n'est publié sur l'hôte à part
+# Caddy (80/443) — tout le reste communique via le réseau Docker interne uniquement.
+# Usage : docker compose -f docker-compose.prod.yml --env-file .env up -d --build
+services:
+
+  postgres:
+    image: postgres:17
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_DATABASE}
+      POSTGRES_USER: ${DB_USERNAME}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks: [skillforge_network]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME} -d ${DB_DATABASE}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 5s
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    networks: [skillforge_network]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 5s
+
+  rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    restart: unless-stopped
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD}
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    networks: [skillforge_network]
+
+  minio:
+    image: minio/minio:latest
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${AWS_ACCESS_KEY_ID}
+      MINIO_ROOT_PASSWORD: ${AWS_SECRET_ACCESS_KEY}
+    volumes:
+      - minio_data:/data
+    networks: [skillforge_network]
+
+  # Crée le bucket au premier démarrage et le rend public en lecture (nécessaire
+  # pour que le passthrough Caddy /storage/* serve les fichiers). Tourne une
+  # fois puis s'arrête — ce n'est pas un service persistant.
+  minio-init:
+    image: minio/mc:latest
+    restart: "no"
+    entrypoint: >
+      /bin/sh -c "
+      until mc alias set local http://minio:9000 ${AWS_ACCESS_KEY_ID} ${AWS_SECRET_ACCESS_KEY}; do sleep 2; done;
+      mc mb --ignore-existing local/${AWS_BUCKET};
+      mc anonymous set download local/${AWS_BUCKET};
+      "
+    depends_on: [minio]
+    networks: [skillforge_network]
+
+  libretranslate:
+    image: libretranslate/libretranslate:latest
+    restart: unless-stopped
+    environment:
+      LT_LOAD_ONLY: en,fr
+      LT_DISABLE_WEB_UI: "true"
+      LT_UPDATE_MODELS: "false"
+    volumes:
+      - libretranslate_data:/home/libretranslate/.local
+    networks: [skillforge_network]
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:5000/languages')"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 60s
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 1024M
+
+  judge0:
+    image: judge0/judge0:1.13.0
+    restart: unless-stopped
+    environment:
+      REDIS_URL: redis://redis:6379/1
+      POSTGRES_HOST: postgres
+      POSTGRES_DB: judge0
+      POSTGRES_USER: ${DB_USERNAME}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+    networks: [skillforge_network]
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 512M
+
+  judge0_worker:
+    image: judge0/judge0:1.13.0
+    restart: unless-stopped
+    command: ["./scripts/workers"]
+    environment:
+      REDIS_URL: redis://redis:6379/1
+      POSTGRES_HOST: postgres
+      POSTGRES_DB: judge0
+      POSTGRES_USER: ${DB_USERNAME}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      COUNT: 1
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+      judge0: { condition: service_started }
+    networks: [skillforge_network]
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 256M
+
+  app:
+    build: .
+    restart: unless-stopped
+    env_file: .env
+    volumes:
+      - storage_data:/var/www/html/storage
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+    networks: [skillforge_network]
+
+  queue-worker:
+    build: .
+    restart: unless-stopped
+    env_file: .env
+    command: php artisan queue:work --tries=3 --timeout=30 --sleep=1
+    volumes:
+      - storage_data:/var/www/html/storage
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+      rabbitmq: { condition: service_started }
+    networks: [skillforge_network]
+
+  nginx:
+    image: nginx:alpine
+    restart: unless-stopped
+    volumes:
+      - ./docker/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - storage_data:/var/www/html/storage:ro
+      - ./public:/var/www/html/public:ro
+    depends_on: [app]
+    networks: [skillforge_network]
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    environment:
+      API_DOMAIN: ${API_DOMAIN}
+      AWS_BUCKET: ${AWS_BUCKET}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on: [nginx]
+    networks: [skillforge_network]
+
+volumes:
+  postgres_data:
+  redis_data:
+  rabbitmq_data:
+  minio_data:
+  libretranslate_data:
+  storage_data:
+  caddy_data:
+  caddy_config:
+
+networks:
+  skillforge_network:
+    driver: bridge
