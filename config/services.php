@@ -37,7 +37,18 @@ return [
 
     'groq' => [
         'api_key' => env('GROQ_API_KEY'),
-        'model'   => env('GROQ_MODEL', 'llama-3.3-70b-versatile'),
+        'model' => env('GROQ_MODEL', 'llama-3.3-70b-versatile'),
+
+        // Entretien vocal IA : Speech-to-Text (Whisper) et Text-to-Speech (Orpheus).
+        // ATTENTION : playai-tts a été décommissionné par Groq. Le remplaçant,
+        // canopylabs/orpheus-v1-english, ne supporte QUE l'anglais (et
+        // canopylabs/orpheus-arabic-saudi l'arabe) — pas de voix française
+        // actuellement disponible côté Groq. Nécessite d'accepter les conditions
+        // sur https://console.groq.com/playground?model=canopylabs%2Forpheus-v1-english
+        'stt_model' => env('GROQ_STT_MODEL', 'whisper-large-v3'),
+        'tts_model' => env('GROQ_TTS_MODEL', 'canopylabs/orpheus-v1-english'),
+        'tts_voice' => env('GROQ_TTS_VOICE', 'troy'),
+        'tts_format' => env('GROQ_TTS_FORMAT', 'wav'),
     ],
 
     'judge0' => [
@@ -45,5 +56,36 @@ return [
     ],
     'github' => [
         'token' => env('GITHUB_TOKEN'), // optionnel, augmente les rate limits
+
+        // OAuth (connexion "Se connecter avec GitHub")
+        'client_id' => env('GITHUB_CLIENT_ID'),
+        'client_secret' => env('GITHUB_CLIENT_SECRET'),
+        'redirect' => env('GITHUB_REDIRECT_URI'),
     ],
+
+    'google' => [
+        'client_id' => env('GOOGLE_CLIENT_ID'),
+        'client_secret' => env('GOOGLE_CLIENT_SECRET'),
+        'redirect' => env('GOOGLE_REDIRECT_URI'),
+    ],
+
+    'google_translate' => [
+        // Clé API "Cloud Translation API" (console.cloud.google.com/apis/credentials)
+        // — distincte de la clé OAuth ci-dessus, même projet GCP possible.
+        'api_key' => env('GOOGLE_TRANSLATE_API_KEY'),
+    ],
+
+    'libretranslate' => [
+        // Instance auto-hébergée (voir docker-compose.yml, service "libretranslate")
+        'url' => env('LIBRETRANSLATE_URL', 'http://localhost:5005'),
+    ],
+
+    'translation' => [
+        // "libretranslate" (gratuit, auto-hébergé) ou "google" (nécessite une
+        // clé Cloud Translation API facturée par Google, cf. GOOGLE_TRANSLATE_API_KEY)
+        'driver' => env('TRANSLATION_DRIVER', 'libretranslate'),
+    ],
+
+    // URL du frontend Next.js, utilisée pour rediriger après le callback OAuth
+    'frontend_url' => env('FRONTEND_URL', 'http://localhost:3000'),
 ];
