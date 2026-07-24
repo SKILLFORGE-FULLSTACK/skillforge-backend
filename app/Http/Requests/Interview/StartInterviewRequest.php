@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Interview;
 
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class StartInterviewRequest extends FormRequest
 {
@@ -14,7 +15,9 @@ class StartInterviewRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'type' => 'required|in:algo,system_design,behavioral,code_review,debug,tech_stack,live_coding',
+            // "type" doit correspondre à une catégorie active — plus figé dans
+            // le code, gérable depuis l'admin (voir InterviewCategory).
+            'type' => ['required', Rule::exists('interview_categories', 'key')->where('is_active', true)],
             'difficulty' => 'nullable|in:easy,medium,hard,expert',
             'stack_focus' => 'nullable|string|max:100',
             'company_target' => 'nullable|string|max:100',

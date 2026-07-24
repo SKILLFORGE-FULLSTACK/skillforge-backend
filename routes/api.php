@@ -1,7 +1,9 @@
 <?php
 
+use App\Http\Controllers\Api\Admin\InterviewCategoryController as AdminInterviewCategoryController;
 use App\Http\Controllers\Api\Auth\LoginController;
 use App\Http\Controllers\Api\Auth\LogoutController;
+use App\Http\Controllers\Api\Auth\OAuthController;
 use App\Http\Controllers\Api\Auth\RegisterController;
 use App\Http\Controllers\Api\Certification\BadgeController;
 use App\Http\Controllers\Api\Certification\CertificationController;
@@ -9,7 +11,9 @@ use App\Http\Controllers\Api\Certification\SubmissionController;
 use App\Http\Controllers\Api\Community\ChallengeController;
 use App\Http\Controllers\Api\Community\ForumController;
 use App\Http\Controllers\Api\Community\NotificationController;
+use App\Http\Controllers\Api\Interview\InterviewCategoryController;
 use App\Http\Controllers\Api\Interview\InterviewSessionController;
+use App\Http\Controllers\Api\Interview\VoiceInterviewController;
 use App\Http\Controllers\Api\Jobs\JobPostingController;
 use App\Http\Controllers\Api\Marketplace\ContactController;
 use App\Http\Controllers\Api\Marketplace\DeveloperSearchController;
@@ -24,6 +28,12 @@ use Illuminate\Support\Facades\Route;
 Route::prefix('auth')->group(function () {
     Route::post('register', RegisterController::class);
     Route::post('login', LoginController::class);
+
+    // OAuth (Google / GitHub)
+    Route::get('{provider}/redirect', [OAuthController::class, 'redirect'])
+        ->whereIn('provider', ['google', 'github']);
+    Route::get('{provider}/callback', [OAuthController::class, 'callback'])
+        ->whereIn('provider', ['google', 'github']);
 });
 
 // ─── PUBLIC ─────────────────────────────────────────────────────
@@ -66,8 +76,20 @@ Route::middleware('auth:sanctum')->group(function () {
         'update',
     ]);
 
+    // ─── ENTRETIENS VOCAUX (IA) ───────────────────────────────────
+    // Enregistrée avant "interviews/{id}" pour éviter toute ambiguïté de route.
+    Route::prefix('interviews/voice')->group(function () {
+        Route::get('/', [VoiceInterviewController::class, 'index']);
+        Route::post('start', [VoiceInterviewController::class, 'start']);
+        Route::post('{id}/turn', [VoiceInterviewController::class, 'turn']);
+        Route::post('{id}/complete', [VoiceInterviewController::class, 'complete']);
+        Route::get('{id}', [VoiceInterviewController::class, 'show']);
+    });
+
     // ─── INTERVIEWS ─────────────────────────────────────────────
     Route::prefix('interviews')->group(function () {
+        // "categories" avant "{id}" pour éviter toute ambiguïté de route.
+        Route::get('categories', [InterviewCategoryController::class, 'index']);
         Route::get('/', [InterviewSessionController::class, 'index']);
         Route::post('start', [InterviewSessionController::class, 'start']);
         Route::post('{id}/respond', [InterviewSessionController::class, 'respond']);
@@ -124,5 +146,15 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('{id}/submit', [ChallengeController::class, 'submit']);
         Route::get('{id}/leaderboard', [ChallengeController::class, 'leaderboard']);
     });
-});
 
+    // ─── ADMIN ──────────────────────────────────────────────────
+    // Autorisation vérifiée dans chaque Controller/FormRequest (isAdmin()).
+    Route::prefix('admin')->group(function () {
+        Route::prefix('interview-categories')->group(function () {
+            Route::get('/', [AdminInterviewCategoryController::class, 'index']);
+            Route::post('/', [AdminInterviewCategoryController::class, 'store']);
+            Route::put('{id}', [AdminInterviewCategoryController::class, 'update']);
+            Route::delete('{id}', [AdminInterviewCategoryController::class, 'destroy']);
+        });
+    });
+});
