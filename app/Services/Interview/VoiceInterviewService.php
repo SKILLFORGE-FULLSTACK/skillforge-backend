@@ -20,7 +20,10 @@ class VoiceInterviewService
 
     private const DAILY_ROOM_LIMIT = 8;
 
-    public function __construct(private GroqService $groq) {}
+    public function __construct(
+        private GroqService $groq,
+        private PiperTtsService $piper,
+    ) {}
 
     // ─── DÉMARRER UNE SALLE ─────────────────────────────────────────
 
@@ -198,13 +201,21 @@ class VoiceInterviewService
 
     private function synthesizeAndStore(InterviewRoom $room, string $text): ?string
     {
-        $audio = $this->groq->synthesizeSpeech($text);
+        // Groq n'a pas de voix française — on utilise Piper (auto-hébergé,
+        // gratuit) pour le français, Groq pour les autres langues supportées.
+        if ($room->language === 'fr') {
+            $audio = $this->piper->synthesizeSpeech($text);
+            $format = 'wav';
+        } else {
+            $audio = $this->groq->synthesizeSpeech($text);
+            $format = $this->groq->ttsFormat();
+        }
 
         if (! $audio) {
             return null;
         }
 
-        $path = "interview-audio/{$room->id}/".Str::uuid().'.'.$this->groq->ttsFormat();
+        $path = "interview-audio/{$room->id}/".Str::uuid().".{$format}";
         Storage::disk('s3')->put($path, $audio);
 
         return Storage::disk('s3')->url($path);

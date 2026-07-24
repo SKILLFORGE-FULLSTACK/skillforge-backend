@@ -80,6 +80,12 @@ return [
         'url' => env('LIBRETRANSLATE_URL', 'http://localhost:5005'),
     ],
 
+    'piper' => [
+        // Serveur TTS français auto-hébergé et gratuit (voir docker-compose.yml,
+        // service "piper-tts" — Groq n'a pas de voix française actuellement).
+        'url' => env('PIPER_TTS_URL', 'http://localhost:5006'),
+    ],
+
     'translation' => [
         // "libretranslate" (gratuit, auto-hébergé) ou "google" (nécessite une
         // clé Cloud Translation API facturée par Google, cf. GOOGLE_TRANSLATE_API_KEY)

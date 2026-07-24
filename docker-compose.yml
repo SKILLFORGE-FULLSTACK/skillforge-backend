@@ -221,6 +221,33 @@ services:
           cpus: "1.0"
           memory: 1024M
 
+  # ─── PIPER TTS (voix française) ────────────────
+  # Alternative 100% gratuite et auto-hébergée pour la synthèse vocale
+  # française de l'entretien vocal IA — Groq n'a pas de voix française
+  # actuellement (voir config/services.php, clé "groq"). Image construite
+  # localement (docker/piper/Dockerfile) plutôt qu'une image tierce, pour
+  # garder le contrôle exact du format d'API utilisé par PiperTtsService.
+  piper-tts:
+    build:
+      context: ./docker/piper
+    container_name: skillforge_piper_tts
+    restart: unless-stopped
+    ports:
+      - "5006:5000"
+    networks:
+      - skillforge_network
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen(urllib.request.Request('http://localhost:5000/synthesize', data=b'{\"text\":\"ok\"}', headers={'Content-Type':'application/json'}))"]
+      interval: 10s
+      timeout: 10s
+      retries: 20
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 512M
+
 volumes:
   postgres_data:
   redis_data:

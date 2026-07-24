@@ -93,6 +93,25 @@ services:
           cpus: "1.0"
           memory: 1024M
 
+  # Voix française pour l'entretien vocal IA (gratuit, auto-hébergé — Groq n'a
+  # pas de voix française actuellement). Image construite localement.
+  piper-tts:
+    build:
+      context: ./docker/piper
+    restart: unless-stopped
+    networks: [skillforge_network]
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen(urllib.request.Request('http://localhost:5000/synthesize', data=b'{\"text\":\"ok\"}', headers={'Content-Type':'application/json'}))"]
+      interval: 10s
+      timeout: 10s
+      retries: 20
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 512M
+
   judge0:
     image: judge0/judge0:1.13.0
     restart: unless-stopped
