@@ -10,11 +10,22 @@ services:
       POSTGRES_USER: skillforge_user
       POSTGRES_PASSWORD: skillforge_pass
     ports:
-      - "5432:5432"
+      # 5432 tombe dans une plage de ports réservée par Windows/Hyper-V
+      # (netsh interface ipv4 show excludedportrange protocol=tcp) — Docker
+      # Desktop ne peut pas publier ce port sur l'hôte. On utilise 55432 côté
+      # hôte ; la communication inter-conteneurs (judge0, etc.) n'est pas
+      # affectée puisqu'elle passe par le réseau Docker interne (port 5432).
+      - "55432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     networks:
       - skillforge_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U skillforge_user -d skillforge"]
+      interval: 3s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
 
   redis:
     image: redis:7-alpine
@@ -27,6 +38,12 @@ services:
       - redis_data:/data
     networks:
       - skillforge_network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 3s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
 
   zookeeper:
     image: confluentinc/cp-zookeeper:7.6.0
@@ -112,6 +129,14 @@ services:
       - skillforge_network
 
   # ─── JUDGE0 ────────────────────────────────────
+  # judge0_worker a déjà causé une boucle de crash infinie (Rails/Resque qui
+  # replante en boucle sur un souci réseau transitoire WSL2 au démarrage,
+  # sans aucun backoff côté script — voir historique). Deux garde-fous :
+  # 1) depends_on "service_healthy" sur postgres/redis pour réduire le risque
+  #    de connexion tentée trop tôt : COUNT=1 réduit le nombre de connexions
+  #    Redis simultanées à l'initialisation.
+  # 2) cpus/memory : plafond dur — même si la boucle revient, elle ne peut
+  #    plus saturer la machine.
   judge0:
     image: judge0/judge0:1.13.0
     container_name: skillforge_judge0
@@ -125,10 +150,17 @@ services:
       POSTGRES_USER: skillforge_user
       POSTGRES_PASSWORD: skillforge_pass
     depends_on:
-      - postgres
-      - redis
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     networks:
       - skillforge_network
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 512M
 
   judge0_worker:
     image: judge0/judge0:1.13.0
@@ -141,10 +173,53 @@ services:
       POSTGRES_DB: judge0
       POSTGRES_USER: skillforge_user
       POSTGRES_PASSWORD: skillforge_pass
+      COUNT: 1
     depends_on:
-      - judge0
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      judge0:
+        condition: service_started
     networks:
       - skillforge_network
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 256M
+
+  # ─── LIBRETRANSLATE ────────────────────────────
+  # Alternative 100% gratuite et auto-hébergée à l'API Google Cloud Translation
+  # (aucune carte bancaire / clé API tierce nécessaire). LOAD_ONLY restreint le
+  # téléchargement aux seules paires fr<->en utilisées par l'app, ce qui réduit
+  # nettement le temps de démarrage et la mémoire consommée. Limites de
+  # ressources posées par précaution (cf. incident CPU judge0_worker).
+  libretranslate:
+    image: libretranslate/libretranslate:latest
+    container_name: skillforge_libretranslate
+    restart: unless-stopped
+    environment:
+      LT_LOAD_ONLY: en,fr
+      LT_DISABLE_WEB_UI: "true"
+      LT_UPDATE_MODELS: "false"
+    ports:
+      - "5005:5000"
+    volumes:
+      - libretranslate_data:/home/libretranslate/.local
+    networks:
+      - skillforge_network
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:5000/languages')"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 60s
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 1024M
 
 volumes:
   postgres_data:
@@ -152,6 +227,7 @@ volumes:
   rabbitmq_data:
   elasticsearch_data:
   minio_data:
+  libretranslate_data:
 
 networks:
   skillforge_network:
