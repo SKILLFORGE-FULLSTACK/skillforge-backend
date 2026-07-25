@@ -43,7 +43,7 @@ class GroqService
             $response = Http::withHeaders([
                 'Authorization' => "Bearer {$this->apiKey}",
                 'Content-Type' => 'application/json',
-            ])->post("{$this->baseUrl}/chat/completions", [
+            ])->retry(2, 500)->post("{$this->baseUrl}/chat/completions", [
                 'model' => $this->model,
                 'messages' => $messages,
                 'max_tokens' => $maxTokens,
@@ -208,6 +208,7 @@ PROMPT;
             $response = Http::withHeaders([
                 'Authorization' => "Bearer {$this->apiKey}",
             ])->attach('file', file_get_contents($absolutePath), $filename)
+                ->retry(2, 500)
                 ->post("{$this->baseUrl}/audio/transcriptions", [
                     'model' => $this->sttModel,
                     'language' => $language,
@@ -239,7 +240,7 @@ PROMPT;
             $response = Http::withHeaders([
                 'Authorization' => "Bearer {$this->apiKey}",
                 'Content-Type' => 'application/json',
-            ])->post("{$this->baseUrl}/audio/speech", [
+            ])->retry(2, 500)->post("{$this->baseUrl}/audio/speech", [
                 'model' => $this->ttsModel,
                 'voice' => $this->ttsVoice,
                 'input' => $text,
