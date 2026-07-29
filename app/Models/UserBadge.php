@@ -20,6 +20,7 @@ class UserBadge extends Model
         'description',
         'score',
         'badge_image_url',
+        'certificate_url',
         'issued_at',
         'expires_at',
         'is_public',
@@ -29,10 +30,10 @@ class UserBadge extends Model
     protected function casts(): array
     {
         return [
-            'issued_at'  => 'datetime',
+            'issued_at' => 'datetime',
             'expires_at' => 'datetime',
-            'is_public'  => 'boolean',
-            'score'      => 'decimal:2',
+            'is_public' => 'boolean',
+            'score' => 'decimal:2',
         ];
     }
 

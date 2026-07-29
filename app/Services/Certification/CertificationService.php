@@ -152,7 +152,7 @@ class CertificationService
     public function getMySubmissions(User $user): LengthAwarePaginator
     {
         return CertificationSubmission::where('user_id', $user->id)
-            ->with('certification')
+            ->with(['certification', 'badge.certification'])
             ->latest()
             ->paginate(10);
     }

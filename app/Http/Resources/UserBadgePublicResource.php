@@ -22,6 +22,7 @@ class UserBadgePublicResource extends JsonResource
             'expires_at' => $this->expires_at?->format('Y-m-d'),
             'is_expired' => $this->isExpired(),
             'is_valid' => ! $this->isExpired(),
+            'certificate_url' => $this->certificate_url,
             'developer' => [
                 'name' => $this->user->name,
                 'username' => $this->user->username,
